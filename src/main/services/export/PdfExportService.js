@@ -49,19 +49,24 @@ class PdfExportService extends BaseExportService {
           '--no-sandbox',
           '--disable-setuid-sandbox',
           '--disable-web-security',
-          '--disable-features=VizDisplayCompositor'
+          '--disable-features=VizDisplayCompositor',
+          '--allow-running-insecure-content',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding'
         ]
       });
 
       // 连接到Chrome DevTools Protocol
       const client = await CDP({ port: chrome.port });
-      const { Page, Runtime } = client;
+      const { Page, Runtime, Network } = client;
 
       try {
         // 启用必要的域
         await Promise.all([
           Page.enable(),
-          Runtime.enable()
+          Runtime.enable(),
+          Network.enable()
         ]);
 
         // 导航到空白页面并设置内容
@@ -77,7 +82,43 @@ class PdfExportService extends BaseExportService {
           `
         });
 
-        // 等待页面完全加载
+        // 等待DOM完全加载
+        await Page.loadEventFired();
+        
+        // 等待JavaScript执行完成
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // 等待所有资源加载完成
+        await Runtime.evaluate({
+          expression: `
+            new Promise((resolve) => {
+              if (document.readyState === 'complete') {
+                resolve();
+              } else {
+                window.addEventListener('load', resolve);
+                setTimeout(resolve, 3000); // 超时保护
+              }
+            })
+          `
+        });
+
+        // 等待CSS和字体加载
+        await Runtime.evaluate({
+          expression: `
+            new Promise((resolve) => {
+              const checkFonts = () => {
+                if (document.fonts && document.fonts.ready) {
+                  document.fonts.ready.then(resolve);
+                } else {
+                  setTimeout(resolve, 1000);
+                }
+              };
+              checkFonts();
+            })
+          `
+        });
+
+        // 再次等待确保渲染完成
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // 生成PDF

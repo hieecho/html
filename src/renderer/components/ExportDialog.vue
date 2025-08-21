@@ -122,6 +122,19 @@
           <el-switch v-model="form.options.fullPage" />
         </el-form-item>
 
+        <el-form-item label="捕获选择器">
+          <el-input
+            v-model="form.options.captureSelector"
+            placeholder="例如: #main-content, .container"
+            clearable
+          >
+            <template #prepend>CSS</template>
+          </el-input>
+          <div style="font-size: 12px; color: #999; margin-top: 4px;">
+            指定要截图的元素选择器，留空则截图整个页面
+          </div>
+        </el-form-item>
+
         <el-form-item label="设备像素比">
           <el-slider
             v-model="form.options.deviceScaleFactor"
@@ -191,6 +204,7 @@ export default {
         height: 1080,
         quality: 90,
         fullPage: true,
+        captureSelector: '',
         deviceScaleFactor: 2
       }
     });

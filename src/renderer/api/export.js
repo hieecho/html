@@ -1,5 +1,8 @@
 import axios from 'axios';
 
+// 配置基础URL
+const API_BASE_URL = 'http://localhost:3001';
+
 /**
  * 导出API服务
  */
@@ -13,7 +16,7 @@ export const exportApi = {
    */
   async exportContent(content, format, options = {}) {
     try {
-      const response = await axios.post('/api/export', {
+      const response = await axios.post(`${API_BASE_URL}/api/export`, {
         content,
         format,
         options
@@ -36,7 +39,7 @@ export const exportApi = {
    */
   async getSupportedFormats() {
     try {
-      const response = await axios.get('/api/export/formats');
+      const response = await axios.get(`${API_BASE_URL}/api/export/formats`);
       return response.data.data;
     } catch (error) {
       console.error('获取格式列表失败:', error);
@@ -51,7 +54,7 @@ export const exportApi = {
    */
   async getOptionsTemplate(format) {
     try {
-      const response = await axios.get(`/api/export/options/${format}`);
+      const response = await axios.get(`${API_BASE_URL}/api/export/options/${format}`);
       return response.data.data;
     } catch (error) {
       console.error('获取选项模板失败:', error);
@@ -66,7 +69,7 @@ export const exportApi = {
    */
   async testExport(format) {
     try {
-      const response = await axios.post('/api/export/test', {
+      const response = await axios.post(`${API_BASE_URL}/api/export/test`, {
         format
       }, {
         responseType: 'blob'

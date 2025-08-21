@@ -187,6 +187,7 @@ defineExpose({
   setCode: (newCode: string) => {
     code.value = newCode;
   },
+  getPreviewHTML: () => previewContent.value,
 });
 </script>
 

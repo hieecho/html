@@ -106,7 +106,7 @@
     <!-- 导出对话框 -->
     <ExportDialog
       v-model="showExportDialog"
-      :content="currentHtml?.content || ''"
+      :content="exportHtmlContent"
       :title="currentHtml?.title || ''"
     />
   </div>
@@ -129,6 +129,48 @@ const showExportDialog = ref(false);
 
 const currentHtml = computed(() => htmlStore.currentHtml);
 
+// 根据不同类型，计算用于导出的“所见即所得”HTML
+const exportHtmlContent = computed(() => {
+  if (!currentHtml.value) return '';
+  const type = currentHtml.value.contentType;
+  if (type === 'code') {
+    // 优先使用编辑器的完整预览HTML
+    const html = codeEditorRef.value?.getPreviewHTML?.();
+    if (html && typeof html === 'string') return html;
+    // 兜底：和编辑器一致的组装
+    const code = currentHtml.value.content || '';
+    const fullHtml = code.includes('<html') ? code : `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>预览</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              margin: 20px;
+              line-height: 1.6;
+            }
+          </style>
+        </head>
+        <body>
+          ${code}
+        </body>
+      </html>
+    `;
+    return fullHtml;
+  }
+  if (type === 'url') {
+    // 若已加载，则导出实际加载后的HTML
+    if (urlContent.value) return urlContent.value;
+    // 未加载则简单包裹一个 iframe（仍能被后端渲染为可视内容）
+    const u = currentHtml.value.content;
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>URL导出</title><style>html,body,iframe{height:100%;width:100%;margin:0;border:0;}</style></head><body><iframe src="${u}" frameborder="0" style="width:100%;height:100%"></iframe></body></html>`;
+  }
+  // snapshot 直接是完整HTML
+  return currentHtml.value.content || '';
+});
 const canOpenInBrowser = computed(() => {
   return currentHtml.value?.contentType === 'url' && currentHtml.value?.content;
 });
