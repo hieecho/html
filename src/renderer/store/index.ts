@@ -274,6 +274,21 @@ export const useTagStore = defineStore('tag', () => {
     }
   };
 
+  const deleteTag = async (id: string) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      await tagApi.delete(id);
+      tags.value = tags.value.filter(tag => tag.id !== id);
+      popularTags.value = popularTags.value.filter(tag => tag.id !== id);
+    } catch (err) {
+      error.value = '删除标签失败';
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     tags,
     popularTags,
@@ -281,5 +296,6 @@ export const useTagStore = defineStore('tag', () => {
     error,
     loadTags,
     createTag,
+    deleteTag,
   };
 });

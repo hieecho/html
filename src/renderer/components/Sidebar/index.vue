@@ -52,31 +52,71 @@
     </div>
     
     <div class="tags-section">
-      <h4>标签</h4>
+      <div class="section-header">
+        <h4>标签</h4>
+        <el-button type="primary" size="small" @click="showCreateTagDialog = true">新建</el-button>
+      </div>
       <div class="tags-cloud">
-        <el-tag
-          v-for="tag in tags"
-          :key="tag.id"
-          :color="tag.color"
-          class="tag-item"
-          @click="selectTag(tag)"
-        >
-          {{ tag.name }}
-        </el-tag>
+        <div class="tag-item" v-for="tag in tags" :key="tag.id">
+          <el-tag
+            :color="tag.color"
+            class="tag-name"
+            @click="selectTag(tag)"
+          >
+            {{ tag.name }}
+          </el-tag>
+          <el-button
+            type="danger"
+            size="small"
+            :icon="Delete"
+            circle
+            @click.stop="deleteTag(tag)"
+            class="delete-btn"
+          />
+        </div>
       </div>
     </div>
   </div>
+
+  <!-- 创建标签对话框 -->
+  <el-dialog
+    v-model="showCreateTagDialog"
+    title="创建标签"
+    width="400px"
+  >
+    <el-form :model="newTagData" label-width="80px">
+      <el-form-item label="标签名称" required>
+        <el-input
+          v-model="newTagData.name"
+          placeholder="请输入标签名称"
+          maxlength="20"
+          show-word-limit
+        />
+      </el-form-item>
+      <el-form-item label="标签颜色">
+        <el-color-picker v-model="newTagData.color" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showCreateTagDialog = false">取消</el-button>
+        <el-button type="primary" @click="createTag">创建</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue';
 import { useFolderStore, useTagStore } from '../../store';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElTag } from 'element-plus';
 
 const searchText = ref('');
 const folderStore = useFolderStore();
 const tagStore = useTagStore();
+const showCreateTagDialog = ref(false);
+const newTagData = ref({ name: '', color: '#409EFF' });
 
 const folderData = ref([
   {
@@ -102,16 +142,58 @@ onMounted(async () => {
   await tagStore.loadTags();
   
   // 更新文件夹树数据
-  folderData.value = folderStore.folderTree;
-  tags.value = tagStore.tags;
+  await folderStore.loadFolders();
+  folderData.value = folderStore.folderTree.map((folder: any) => ({
+    id: parseInt(folder.id),
+    label: folder.name,
+    children: folder.children?.map((child: any) => ({
+      id: parseInt(child.id),
+      label: child.name,
+      children: []
+    })) || []
+  }));
+  
+  await tagStore.loadTags();
+  tags.value = tagStore.tags.map((tag: any) => ({
+    id: parseInt(tag.id),
+    name: tag.name,
+    color: tag.color
+  }));
 });
 
 const handleNodeClick = (data: any) => {
   console.log('点击文件夹:', data);
 };
 
+const emit = defineEmits(['tag-selected']);
+
 const selectTag = (tag: any) => {
-  console.log('选择标签:', tag);
+  console.log('选择标签:', tag.name);
+  emit('tag-selected', tag.name);
+};
+
+const createTag = async () => {
+  try {
+    if (!newTagData.value.name.trim()) {
+      ElMessage.error('标签名称不能为空');
+      return;
+    }
+    
+    await tagStore.createTag({
+      name: newTagData.value.name.trim(),
+      color: newTagData.value.color
+    });
+    
+    showCreateTagDialog.value = false;
+    newTagData.value = { name: '', color: '#409EFF' };
+    ElMessage.success('标签创建成功');
+    
+    // 重新加载标签数据
+    await tagStore.loadTags();
+  } catch (error) {
+    console.error('创建标签失败:', error);
+    ElMessage.error(`创建标签失败: ${(error as Error).message}`);
+  }
 };
 
 const showCreateFolderDialog = async () => {
@@ -137,7 +219,7 @@ const showCreateFolderDialog = async () => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('创建文件夹失败:', error);
-      ElMessage.error('创建文件夹失败: ' + (error.response?.data?.error || error.message));
+      ElMessage.error('创建文件夹失败: ' + ((error as any).response?.data?.error || (error as Error).message));
     }
   }
 };
@@ -188,6 +270,36 @@ const deleteFolder = async (folder: any) => {
   }
 };
 
+const deleteTag = async (tag: any) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除标签 "${tag.name}" 吗？此操作不可撤销。`,
+      '删除标签',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    );
+
+    await tagStore.deleteTag(tag.id);
+    ElMessage.success('标签已删除');
+    
+    // 重新加载标签数据
+    await tagStore.loadTags();
+    tags.value = tagStore.tags.map((tag: any) => ({
+      id: parseInt(tag.id),
+      name: tag.name,
+      color: tag.color
+    }));
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除标签失败:', error);
+      ElMessage.error('删除标签失败');
+    }
+  }
+};
+
 const handleContextMenu = (event: MouseEvent, data: any, node: any, component: any) => {
   event.preventDefault();
   // 右键菜单逻辑
@@ -217,6 +329,20 @@ const handleContextMenu = (event: MouseEvent, data: any, node: any, component: a
 }
 
 .folder-header h4 {
+  margin: 0;
+  color: #606266;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.section-header h4 {
   margin: 0;
   color: #606266;
   font-size: 14px;
@@ -260,6 +386,26 @@ const handleContextMenu = (event: MouseEvent, data: any, node: any, component: a
 }
 
 .tag-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.tag-name {
   cursor: pointer;
+  color: white !important;
+}
+
+.delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+}
+
+.tag-item:hover .delete-btn {
+  opacity: 1;
 }
 </style>

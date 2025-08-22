@@ -1,6 +1,7 @@
 <template>
   <div class="content-list">
     <SearchBar 
+      ref="searchBarRef"
       @search="handleSearch" 
       @clear="handleClear" 
     />
@@ -165,6 +166,9 @@ import ImportDialog from '../Import/ImportDialog.vue';
 
 const htmlStore = useHtmlStore();
 const showAddDialog = ref(false);
+const showEditDialog = ref(false);
+const editingItem = ref(null);
+const searchBarRef = ref();
 
 const addFormRef = ref();
 const formData = ref({
@@ -176,12 +180,10 @@ const formData = ref({
 });
 
 const selectedId = ref('');
-const showEditDialog = ref(false);
-const editingItem = ref(null);
 const showImportDialog = ref(false);
 const searchQuery = ref('');
-const filterType = ref('');
 const filterTag = ref('');
+const filterFolder = ref('');
 
 // 计算属性，格式化显示
 const htmlItems = computed(() => htmlStore.htmls);
@@ -198,16 +200,18 @@ const filteredItems = computed(() => {
     );
   }
   
-  // 类型过滤
-  if (filterType.value) {
-    items = items.filter(item => item.contentType === filterType.value);
-  }
+
   
   // 标签过滤
   if (filterTag.value) {
     items = items.filter(item =>
       item.tags && item.tags.includes(filterTag.value)
     );
+  }
+  
+  // 文件夹过滤
+  if (filterFolder.value) {
+    items = items.filter(item => item.folderId === filterFolder.value);
   }
   
   return items;
@@ -262,9 +266,9 @@ const addItem = async () => {
       tags: [],
       folderId: '1'
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('创建失败:', error);
-    ElMessage.error('创建失败: ' + (error.response?.data?.error || error.message));
+    ElMessage.error('创建失败: ' + (error.response?.data?.error || (error as Error).message));
   }
 };
 
@@ -296,14 +300,23 @@ const refreshData = async () => {
 
 const handleSearch = (filters: any) => {
   searchQuery.value = filters.query || '';
-  filterType.value = filters.type || '';
   filterTag.value = filters.tag || '';
+  filterFolder.value = filters.folder || '';
+  
+  // 同步到SearchBar组件
+  if (searchBarRef.value && searchBarRef.value.setFilters) {
+    searchBarRef.value.setFilters({
+      query: searchQuery.value,
+      tag: filterTag.value,
+      folder: filterFolder.value
+    });
+  }
 };
 
 const handleClear = () => {
   searchQuery.value = '';
-  filterType.value = '';
   filterTag.value = '';
+  filterFolder.value = '';
 };
 
 const handleSave = () => {
@@ -345,6 +358,11 @@ onMounted(async () => {
   if (htmlStore.htmls.length > 0) {
     selectItem(htmlStore.htmls[0]);
   }
+});
+
+// 暴露方法给父组件
+defineExpose({
+  handleSearch
 });
 </script>
 

@@ -10,14 +10,14 @@
       <el-container>
         <!-- 左侧边栏 -->
         <el-aside width="250px" style="background-color: #f5f7fa; border-right: 1px solid #e4e7ed">
-          <Sidebar />
+          <Sidebar @tag-selected="handleTagSelected" />
         </el-aside>
         
         <!-- 中间内容区 -->
         <el-main style="padding: 0">
           <el-container style="height: 100%">
             <el-aside width="300px" style="background-color: #fff; border-right: 1px solid #e4e7ed">
-              <ContentList />
+              <ContentList ref="contentListRef" />
             </el-aside>
             
             <!-- 右侧预览区 -->
@@ -32,9 +32,18 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import Sidebar from './components/Sidebar/index.vue';
 import ContentList from './components/ContentList/index.vue';
 import PreviewPanel from './components/Editor/PreviewPanel.vue';
+
+const contentListRef = ref();
+
+const handleTagSelected = (tagName: string) => {
+  if (contentListRef.value && contentListRef.value.handleSearch) {
+    contentListRef.value.handleSearch({ tag: tagName });
+  }
+};
 </script>
 
 <style>
